@@ -13,7 +13,9 @@ import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Locale
 
 class DayAdapter(
     private var days: List<PlanDay>,
@@ -57,9 +59,10 @@ class DayAdapter(
         val day = days[position]
         val ctx = holder.itemView.context
         val isToday = day.dayOfWeek == todayDow
+        val isFuture = (day.dayOfWeek + 5) % 7 > (todayDow + 5) % 7
         val logRepository = TrainingLogRepository(ctx)
-        val today = logRepository.today()
-        val todayLog = if (isToday) logRepository.getLog(today, day.dayOfWeek) else null
+        val recordDate = dateForThisWeek(day.dayOfWeek)
+        val trainingLog = logRepository.getLog(recordDate, day.dayOfWeek)
 
         holder.dayBadge.text = day.dayName
         holder.focusName.text = day.focus
@@ -79,21 +82,21 @@ class DayAdapter(
             row.findViewById<TextView>(R.id.exerciseName).text = ex.name
             row.findViewById<TextView>(R.id.exerciseSets).text = "${ex.sets}×${ex.reps}"
             val weightInput = row.findViewById<EditText>(R.id.editActualWeight)
-            val savedWeight = todayLog?.exercises
+            val savedWeight = trainingLog?.exercises
                 ?.firstOrNull { it.name == ex.name }?.weight.orEmpty()
             weightInput.setText(savedWeight)
             weightInput.setSelection(weightInput.text.length)
-            weightInput.isEnabled = isToday
-            weightInput.alpha = if (isToday) 1f else 0.45f
-            weightInput.hint = if (isToday) "重量kg" else "当天录入"
-            // 每次绑定都使用新行和新监听器，setText 后再注册，避免覆盖已有记录。
+            weightInput.isEnabled = !isFuture
+            weightInput.alpha = if (isFuture) 0.45f else 1f
+            weightInput.hint = if (isFuture) "未开始" else "重量kg"
+            // setText 后再注册监听，避免绑定界面时覆盖已经保存的重量。
             weightInput.addTextChangedListener(object : TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
                 override fun afterTextChanged(s: Editable?) {
-                    if (!isToday) return
+                    if (isFuture) return
                     logRepository.updateWeight(
-                        today, day, ex.name, s?.toString().orEmpty()
+                        recordDate, day, ex.name, s?.toString().orEmpty()
                     )
                 }
             })
@@ -105,7 +108,12 @@ class DayAdapter(
         holder.cardioText.text =
             "🏃 有氧 · 爬坡 ${day.cardio.minutes} 分钟（坡度 ${day.cardio.incline}，速度 ${day.cardio.speed}）"
 
-        bindDone(holder, Prefs.isDone(ctx, day.dayOfWeek), isToday)
+        bindDone(
+            holder,
+            Prefs.isDoneOnDate(ctx, recordDate, day.dayOfWeek),
+            isToday,
+            isFuture
+        )
 
         holder.btnEdit.setOnClickListener {
             val pos = holder.bindingAdapterPosition
@@ -115,16 +123,18 @@ class DayAdapter(
             val pos = holder.bindingAdapterPosition
             if (pos == RecyclerView.NO_POSITION) return@setOnClickListener
             val item = days[pos]
-            if (item.dayOfWeek != todayDow) return@setOnClickListener
-            val newState = !Prefs.isDone(ctx, item.dayOfWeek)
-            Prefs.setDone(ctx, item.dayOfWeek, newState)
-            logRepository.setCompleted(today, item, newState)
-            bindDone(holder, newState, true)
+            val itemIsFuture = (item.dayOfWeek + 5) % 7 > (todayDow + 5) % 7
+            if (itemIsFuture) return@setOnClickListener
+            val itemDate = dateForThisWeek(item.dayOfWeek)
+            val newState = !Prefs.isDoneOnDate(ctx, itemDate, item.dayOfWeek)
+            Prefs.setDoneOnDate(ctx, itemDate, item.dayOfWeek, newState)
+            logRepository.setCompleted(itemDate, item, newState)
+            bindDone(holder, newState, item.dayOfWeek == todayDow, false)
             onChanged()
         }
     }
 
-    private fun bindDone(holder: DayVH, done: Boolean, isToday: Boolean) {
+    private fun bindDone(holder: DayVH, done: Boolean, isToday: Boolean, isFuture: Boolean) {
         val ctx = holder.itemView.context
         val accent = ContextCompat.getColor(ctx, R.color.accent)
         val gray = ContextCompat.getColor(ctx, R.color.text_secondary)
@@ -132,14 +142,22 @@ class DayAdapter(
 
         holder.card.alpha = if (done) 0.82f else 1f
         holder.doneLabel.text = when {
-            done -> "今日已完成 · 继续加油"
+            done && isToday -> "今日已完成 · 继续加油"
+            done -> "已完成 · 可补录重量"
             isToday -> "今天还没打卡"
-            else -> "训练日当天可打卡"
+            isFuture -> "未到训练日"
+            else -> "可补打卡和录入重量"
         }
         holder.doneLabel.setTextColor(if (done) accent else gray)
-        holder.btnCheck.visibility = if (isToday) View.VISIBLE else View.GONE
-
-        holder.btnCheck.text = if (done) "已打卡 ✓" else "完成打卡"
+        holder.btnCheck.visibility = View.VISIBLE
+        holder.btnCheck.isEnabled = !isFuture
+        holder.btnCheck.alpha = if (isFuture) 0.45f else 1f
+        holder.btnCheck.text = when {
+            done -> "已打卡 ✓"
+            isFuture -> "未开始"
+            isToday -> "完成打卡"
+            else -> "补打卡"
+        }
         if (done) {
             holder.btnCheck.backgroundTintList = ColorStateList.valueOf(accent)
             holder.btnCheck.setTextColor(ContextCompat.getColor(ctx, R.color.bg))
@@ -151,6 +169,15 @@ class DayAdapter(
             holder.btnCheck.strokeColor = ColorStateList.valueOf(divider)
             holder.btnCheck.strokeWidth = dp(ctx, 1)
         }
+    }
+
+    /** 返回当前周中指定训练日的日期，过去的训练日可用于补录。 */
+    private fun dateForThisWeek(dayOfWeek: Int): String {
+        val cal = Calendar.getInstance()
+        val daysFromMonday = (cal.get(Calendar.DAY_OF_WEEK) + 5) % 7
+        cal.add(Calendar.DAY_OF_YEAR, -daysFromMonday)
+        cal.add(Calendar.DAY_OF_YEAR, (dayOfWeek + 5) % 7)
+        return SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(cal.time)
     }
 
     private fun dp(ctx: android.content.Context, value: Int): Int =

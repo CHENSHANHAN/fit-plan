@@ -32,6 +32,13 @@ object Prefs {
         prefs(ctx).edit().putBoolean(doneKey(today, dayOfWeek), done).apply()
     }
 
+    fun isDoneOnDate(ctx: Context, date: String, dayOfWeek: Int): Boolean =
+        prefs(ctx).getBoolean(doneKey(date, dayOfWeek), false)
+
+    fun setDoneOnDate(ctx: Context, date: String, dayOfWeek: Int, done: Boolean) {
+        prefs(ctx).edit().putBoolean(doneKey(date, dayOfWeek), done).apply()
+    }
+
     /** 本周当前训练计划中，已完成打卡的次数。 */
     fun weekDoneCount(ctx: Context, plans: List<PlanDay>): Int {
         val cal = Calendar.getInstance()

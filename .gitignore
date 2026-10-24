@@ -1,0 +1,23 @@
+# Gradle 与构建输出
+.gradle/
+build/
+app/build/
+.android-build/
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+.externalNativeBuild/
+.cxx/
+captures/
+local.properties
+
+# macOS
+.DS_Store
+
+# 本地安装包与签名文件
+*.apk
+*.aab
+*.jks
+*.keystore
+keystore.properties

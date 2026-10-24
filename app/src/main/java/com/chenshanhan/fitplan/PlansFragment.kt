@@ -68,12 +68,18 @@ class PlansFragment : Fragment() {
             root.findViewById<TextView>(R.id.planFocus).text = plan.focus
             root.findViewById<TextView>(R.id.planReminder).text =
                 "提醒 ${plan.reminderTimeText}"
-            root.findViewById<TextView>(R.id.planExercises).text =
-                plan.exercises.joinToString("\n") {
+            val exerciseText = root.findViewById<TextView>(R.id.planExercises)
+            if (plan.exercises.isEmpty()) {
+                exerciseText.text = "力量训练：未安排"
+                exerciseText.setTextColor(root.context.getColor(R.color.text_secondary))
+            } else {
+                exerciseText.text = plan.exercises.joinToString("\n") {
                     "${it.name}  ${it.sets}×${it.reps}"
                 }
+                exerciseText.setTextColor(root.context.getColor(R.color.text_primary))
+            }
             root.findViewById<TextView>(R.id.planCardio).text = if (plan.cardio.minutes > 0) {
-                "爬坡 ${plan.cardio.minutes} 分钟（坡度 ${plan.cardio.incline}，速度 ${plan.cardio.speed}）"
+                cardioDescription(plan.cardio)
             } else {
                 "无有氧安排"
             }
@@ -89,9 +95,31 @@ class PlansFragment : Fragment() {
 
     private fun toggleTemplates() {
         templatesExpanded = !templatesExpanded
-        templateContent.visibility = if (templatesExpanded) View.VISIBLE else View.GONE
         templateToggleLabel.text = if (templatesExpanded) "收起" else "展开"
-        if (templatesExpanded) renderTemplates()
+        templateContent.animate().cancel()
+        val hiddenOffset = -8f * resources.displayMetrics.density
+        if (templatesExpanded) {
+            renderTemplates()
+            templateContent.visibility = View.VISIBLE
+            templateContent.alpha = 0f
+            templateContent.translationY = hiddenOffset
+            templateContent.animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setDuration(180L)
+                .start()
+        } else {
+            templateContent.animate()
+                .alpha(0f)
+                .translationY(hiddenOffset)
+                .setDuration(120L)
+                .withEndAction {
+                    templateContent.visibility = View.GONE
+                    templateContent.alpha = 1f
+                    templateContent.translationY = 0f
+                }
+                .start()
+        }
     }
 
     private fun renderTemplates() {

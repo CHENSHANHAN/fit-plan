@@ -19,15 +19,16 @@ class ReminderReceiver : BroadcastReceiver() {
 
         ReminderScheduler.ensureChannel(context)
 
-        val exerciseSummary = day.exercises.joinToString(" / ") {
-            "${it.name} ${it.sets}×${it.reps}"
+        val contentParts = mutableListOf<String>()
+        if (day.exercises.isNotEmpty()) {
+            contentParts.add(
+                day.exercises.joinToString(" / ") { "${it.name} ${it.sets}×${it.reps}" }
+            )
         }
-        val content = buildString {
-            append(exerciseSummary)
-            if (day.cardio.minutes > 0) {
-                append(" → 爬坡 ${day.cardio.minutes} 分钟（坡度 ${day.cardio.incline}，速度 ${day.cardio.speed}）")
-            }
+        if (day.cardio.minutes > 0) {
+            contentParts.add(cardioDescription(day.cardio))
         }
+        val content = contentParts.joinToString(" → ").ifBlank { "今日训练已安排" }
 
         val openIntent = PendingIntent.getActivity(
             context, dow, Intent(context, MainActivity::class.java),

@@ -4,7 +4,36 @@ import java.util.Calendar
 
 data class Exercise(val name: String, val sets: Int, val reps: String)
 
-data class Cardio(val minutes: Int, val incline: String, val speed: String)
+object CardioType {
+    const val INCLINE = "incline"
+    const val RUNNING = "running"
+    const val CYCLING = "cycling"
+
+    fun normalize(value: String?): String = when (value) {
+        RUNNING, "跑步" -> RUNNING
+        CYCLING, "骑车", "骑行" -> CYCLING
+        else -> INCLINE
+    }
+
+    fun label(value: String?): String = when (normalize(value)) {
+        RUNNING -> "跑步"
+        CYCLING -> "骑车"
+        else -> "爬坡"
+    }
+}
+
+data class Cardio(
+    val minutes: Int,
+    val incline: String,
+    val speed: String,
+    val type: String = CardioType.INCLINE
+)
+
+fun cardioDescription(cardio: Cardio): String = when (CardioType.normalize(cardio.type)) {
+    CardioType.RUNNING -> "跑步 ${cardio.minutes} 分钟（速度 ${cardio.speed}）"
+    CardioType.CYCLING -> "骑车 ${cardio.minutes} 分钟（速度 ${cardio.speed}）"
+    else -> "爬坡 ${cardio.minutes} 分钟（坡度 ${cardio.incline}，速度 ${cardio.speed}）"
+}
 
 data class PlanDay(
     val dayOfWeek: Int,   // Calendar.SUNDAY=1 ... Calendar.SATURDAY=7

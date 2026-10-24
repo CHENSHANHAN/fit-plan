@@ -38,7 +38,8 @@ class PlanRepository(context: Context) {
                         cardio = Cardio(
                             cardio.optInt("minutes", 0),
                             cardio.optString("incline", ""),
-                            cardio.optString("speed", "")
+                            cardio.optString("speed", ""),
+                            CardioType.normalize(cardio.optString("type", CardioType.INCLINE))
                         ),
                         reminderHour = obj.getInt("reminderHour"),
                         reminderMinute = obj.getInt("reminderMinute")
@@ -90,6 +91,7 @@ class PlanRepository(context: Context) {
                             .put("minutes", plan.cardio.minutes)
                             .put("incline", plan.cardio.incline)
                             .put("speed", plan.cardio.speed)
+                            .put("type", CardioType.normalize(plan.cardio.type))
                     )
                     .put("reminderHour", plan.reminderHour)
                     .put("reminderMinute", plan.reminderMinute)

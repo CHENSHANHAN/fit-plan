@@ -105,8 +105,7 @@ class DayAdapter(
 
         holder.cardioText.visibility =
             if (day.cardio.minutes > 0) View.VISIBLE else View.GONE
-        holder.cardioText.text =
-            "🏃 有氧 · 爬坡 ${day.cardio.minutes} 分钟（坡度 ${day.cardio.incline}，速度 ${day.cardio.speed}）"
+        holder.cardioText.text = "⚡ 有氧 · ${cardioDescription(day.cardio)}"
 
         bindDone(
             holder,

@@ -146,6 +146,7 @@ class TrainingLogRepository(context: Context) {
                     .put("minutes", log.cardio.minutes)
                     .put("incline", log.cardio.incline)
                     .put("speed", log.cardio.speed)
+                    .put("type", CardioType.normalize(log.cardio.type))
             )
             .put("completed", log.completed)
             .put("updatedAt", log.updatedAt)
@@ -175,7 +176,8 @@ class TrainingLogRepository(context: Context) {
             cardio = Cardio(
                 cardio.optInt("minutes", 0),
                 cardio.optString("incline", ""),
-                cardio.optString("speed", "")
+                cardio.optString("speed", ""),
+                CardioType.normalize(cardio.optString("type", CardioType.INCLINE))
             ),
             completed = obj.optBoolean("completed", false),
             updatedAt = obj.optLong("updatedAt", 0L)

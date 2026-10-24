@@ -64,8 +64,7 @@ class HistoryAdapter(
         }
 
         holder.cardio.visibility = if (log.cardio.minutes > 0) View.VISIBLE else View.GONE
-        holder.cardio.text =
-            "🏃 爬坡 ${log.cardio.minutes} 分钟（坡度 ${log.cardio.incline}，速度 ${log.cardio.speed}）"
+        holder.cardio.text = "⚡ ${cardioDescription(log.cardio)}"
     }
 
     private fun displayDate(date: String): String {

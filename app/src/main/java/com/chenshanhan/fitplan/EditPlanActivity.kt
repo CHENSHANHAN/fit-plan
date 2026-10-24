@@ -12,6 +12,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.button.MaterialButtonToggleGroup
 
 class EditPlanActivity : AppCompatActivity() {
 
@@ -27,7 +28,11 @@ class EditPlanActivity : AppCompatActivity() {
     private lateinit var editFocus: EditText
     private lateinit var btnTime: MaterialButton
     private lateinit var exerciseContainer: LinearLayout
+    private lateinit var cardioTypeGroup: MaterialButtonToggleGroup
+    private lateinit var cardioConfigTitle: TextView
     private lateinit var editCardioMinutes: EditText
+    private lateinit var inclineFieldContainer: LinearLayout
+    private lateinit var speedFieldContainer: LinearLayout
     private lateinit var editCardioIncline: EditText
     private lateinit var editCardioSpeed: EditText
 
@@ -35,6 +40,7 @@ class EditPlanActivity : AppCompatActivity() {
     private var originalDayOfWeek: Int? = null
     private var reminderHour = 18
     private var reminderMinute = 30
+    private var cardioType = CardioType.INCLINE
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,7 +51,11 @@ class EditPlanActivity : AppCompatActivity() {
         editFocus = findViewById(R.id.editFocus)
         btnTime = findViewById(R.id.btnTime)
         exerciseContainer = findViewById(R.id.exerciseEditorContainer)
+        cardioTypeGroup = findViewById(R.id.cardioTypeGroup)
+        cardioConfigTitle = findViewById(R.id.cardioConfigTitle)
         editCardioMinutes = findViewById(R.id.editCardioMinutes)
+        inclineFieldContainer = findViewById(R.id.inclineFieldContainer)
+        speedFieldContainer = findViewById(R.id.speedFieldContainer)
         editCardioIncline = findViewById(R.id.editCardioIncline)
         editCardioSpeed = findViewById(R.id.editCardioSpeed)
         val btnDelete = findViewById<MaterialButton>(R.id.btnDelete)
@@ -75,6 +85,7 @@ class EditPlanActivity : AppCompatActivity() {
             editFocus.setText(existing.focus)
             reminderHour = existing.reminderHour
             reminderMinute = existing.reminderMinute
+            cardioType = CardioType.normalize(existing.cardio.type)
             editCardioMinutes.setText(existing.cardio.minutes.toString())
             editCardioIncline.setText(existing.cardio.incline)
             editCardioSpeed.setText(existing.cardio.speed)
@@ -89,6 +100,15 @@ class EditPlanActivity : AppCompatActivity() {
             editCardioIncline.setText("10")
             editCardioSpeed.setText("5")
             addExerciseRow(null)
+        }
+
+        cardioTypeGroup.check(cardioButtonId(cardioType))
+        updateCardioTypeUi()
+        cardioTypeGroup.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (isChecked) {
+                cardioType = cardioTypeForButton(checkedId)
+                updateCardioTypeUi()
+            }
         }
         updateTimeText()
 
@@ -113,6 +133,32 @@ class EditPlanActivity : AppCompatActivity() {
 
     private fun updateTimeText() {
         btnTime.text = String.format("提醒时间  %02d:%02d", reminderHour, reminderMinute)
+    }
+
+    private fun cardioButtonId(type: String): Int = when (CardioType.normalize(type)) {
+        CardioType.RUNNING -> R.id.btnCardioRunning
+        CardioType.CYCLING -> R.id.btnCardioCycling
+        else -> R.id.btnCardioIncline
+    }
+
+    private fun cardioTypeForButton(buttonId: Int): String = when (buttonId) {
+        R.id.btnCardioRunning -> CardioType.RUNNING
+        R.id.btnCardioCycling -> CardioType.CYCLING
+        else -> CardioType.INCLINE
+    }
+
+    private fun updateCardioTypeUi() {
+        val isIncline = cardioType == CardioType.INCLINE
+        cardioConfigTitle.text = "有氧 · ${CardioType.label(cardioType)}"
+        inclineFieldContainer.visibility = if (isIncline) View.VISIBLE else View.GONE
+        val speedParams = speedFieldContainer.layoutParams as LinearLayout.LayoutParams
+        speedParams.marginStart = if (isIncline) dp(12) else 0
+        speedFieldContainer.layoutParams = speedParams
+        editCardioSpeed.hint = when (cardioType) {
+            CardioType.RUNNING -> "请输入跑步速度"
+            CardioType.CYCLING -> "请输入骑车速度"
+            else -> "例如：4.5-5"
+        }
     }
 
     private fun addExerciseRow(exercise: Exercise?) {
@@ -168,20 +214,21 @@ class EditPlanActivity : AppCompatActivity() {
             }
             exercises.add(Exercise(name, sets, reps))
         }
-        if (exercises.isEmpty()) {
-            Toast.makeText(this, "请至少添加一个训练动作", Toast.LENGTH_SHORT).show()
-            return
-        }
 
-        val minutes = editCardioMinutes.text.toString().trim().toIntOrNull()
+        val minutesText = editCardioMinutes.text.toString().trim()
+        val minutes = if (minutesText.isEmpty()) 0 else minutesText.toIntOrNull()
         if (minutes == null || minutes < 0) {
-            editCardioMinutes.error = "请输入分钟数，无有氧可填 0"
+            editCardioMinutes.error = "请输入分钟数，无有氧可填 0 或留空"
             editCardioMinutes.requestFocus()
             return
         }
-        val incline = editCardioIncline.text.toString().trim()
+        val incline = if (cardioType == CardioType.INCLINE) {
+            editCardioIncline.text.toString().trim()
+        } else {
+            ""
+        }
         val speed = editCardioSpeed.text.toString().trim()
-        if (minutes > 0 && incline.isEmpty()) {
+        if (minutes > 0 && cardioType == CardioType.INCLINE && incline.isEmpty()) {
             editCardioIncline.error = "请输入坡度"
             editCardioIncline.requestFocus()
             return
@@ -189,6 +236,12 @@ class EditPlanActivity : AppCompatActivity() {
         if (minutes > 0 && speed.isEmpty()) {
             editCardioSpeed.error = "请输入速度"
             editCardioSpeed.requestFocus()
+            return
+        }
+        if (exercises.isEmpty() && minutes == 0) {
+            Toast.makeText(
+                this, "请至少添加一个力量动作，或填写有氧时长", Toast.LENGTH_LONG
+            ).show()
             return
         }
 
@@ -204,7 +257,7 @@ class EditPlanActivity : AppCompatActivity() {
             dayOfWeek = dayOfWeek,
             focus = focus,
             exercises = exercises,
-            cardio = Cardio(minutes, incline, speed),
+            cardio = Cardio(minutes, incline, speed, cardioType),
             reminderHour = reminderHour,
             reminderMinute = reminderMinute
         )
@@ -235,6 +288,8 @@ class EditPlanActivity : AppCompatActivity() {
             ReminderScheduler.scheduleAll(this)
         }
     }
+
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     companion object {
         const val EXTRA_DAY_OF_WEEK = "day_of_week"

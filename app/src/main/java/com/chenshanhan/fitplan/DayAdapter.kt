@@ -20,7 +20,8 @@ import java.util.Locale
 class DayAdapter(
     private var days: List<PlanDay>,
     private val onChanged: () -> Unit,
-    private val onEdit: ((PlanDay) -> Unit)? = null
+    private val onEdit: ((PlanDay) -> Unit)? = null,
+    private val onOpen: ((PlanDay) -> Unit)? = null
 ) : RecyclerView.Adapter<DayAdapter.DayVH>() {
 
     private var todayDow: Int = Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
@@ -80,7 +81,7 @@ class DayAdapter(
                 R.layout.item_exercise, holder.exerciseContainer, false
             )
             row.findViewById<TextView>(R.id.exerciseName).text = ex.name
-            row.findViewById<TextView>(R.id.exerciseSets).text = "${ex.sets}×${ex.reps}"
+            row.findViewById<TextView>(R.id.exerciseSets).text = "${ex.sets} 组 × ${ex.reps} 次"
             val weightInput = row.findViewById<EditText>(R.id.editActualWeight)
             val savedWeight = trainingLog?.exercises
                 ?.firstOrNull { it.name == ex.name }?.weight.orEmpty()
@@ -88,7 +89,7 @@ class DayAdapter(
             weightInput.setSelection(weightInput.text.length)
             weightInput.isEnabled = !isFuture
             weightInput.alpha = if (isFuture) 0.45f else 1f
-            weightInput.hint = if (isFuture) "未开始" else "重量kg"
+            weightInput.hint = if (isFuture) "未开始" else "重量"
             // setText 后再注册监听，避免绑定界面时覆盖已经保存的重量。
             weightInput.addTextChangedListener(object : TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
@@ -114,10 +115,17 @@ class DayAdapter(
             isFuture
         )
 
-        holder.btnEdit.visibility = if (onEdit == null) View.GONE else View.VISIBLE
+        holder.btnEdit.visibility =
+            if (onEdit == null && onOpen == null) View.GONE else View.VISIBLE
+        holder.btnEdit.text = if (onOpen != null) "执行" else "编辑"
         holder.btnEdit.setOnClickListener {
             val pos = holder.bindingAdapterPosition
-            if (pos != RecyclerView.NO_POSITION) onEdit?.invoke(days[pos])
+            if (pos == RecyclerView.NO_POSITION) return@setOnClickListener
+            onOpen?.invoke(days[pos]) ?: onEdit?.invoke(days[pos])
+        }
+        holder.card.setOnClickListener {
+            val pos = holder.bindingAdapterPosition
+            if (pos != RecyclerView.NO_POSITION) onOpen?.invoke(days[pos])
         }
         holder.btnCheck.setOnClickListener {
             val pos = holder.bindingAdapterPosition

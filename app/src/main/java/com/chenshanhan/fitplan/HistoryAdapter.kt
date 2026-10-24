@@ -38,7 +38,7 @@ class HistoryAdapter(
         val ctx = holder.itemView.context
         holder.date.text = "${displayDate(log.date)} · ${weekdayName(log.dayOfWeek)}"
         holder.focus.text = log.focus
-        holder.status.text = if (log.completed) "已打卡 ✓" else "已录重量 · 未打卡"
+        holder.status.text = if (log.completed) "已打卡 ✓" else "已记录 · 未打卡"
         holder.status.setTextColor(
             ContextCompat.getColor(ctx, if (log.completed) R.color.accent else R.color.text_secondary)
         )
@@ -51,7 +51,7 @@ class HistoryAdapter(
             )
             row.findViewById<TextView>(R.id.historyExerciseName).text = exercise.name
             row.findViewById<TextView>(R.id.historyExercisePlan).text =
-                "${exercise.sets}×${exercise.reps}"
+                "${exercise.sets} 组 × ${exercise.reps} 次 · 已完成 ${exercise.completedSets} 组"
             val weight = row.findViewById<TextView>(R.id.historyExerciseWeight)
             weight.text = if (exercise.weight.isBlank()) "未录重量" else "${exercise.weight} kg"
             weight.setTextColor(
@@ -64,7 +64,25 @@ class HistoryAdapter(
         }
 
         holder.cardio.visibility = if (log.cardio.minutes > 0) View.VISIBLE else View.GONE
-        holder.cardio.text = "⚡ ${cardioDescription(log.cardio)}"
+        val actualCardio = if (log.cardioElapsedSeconds > 0) {
+            " · 实际 ${formatDuration(log.cardioElapsedSeconds)}"
+        } else {
+            ""
+        }
+        val cardioStatus = if (log.cardioCompleted) " · 已完成" else ""
+        holder.cardio.text = "⚡ ${cardioDescription(log.cardio)}$actualCardio$cardioStatus"
+    }
+
+    private fun formatDuration(totalSeconds: Long): String {
+        val seconds = totalSeconds.coerceAtLeast(0L)
+        val hours = seconds / 3_600
+        val minutes = (seconds % 3_600) / 60
+        val remainder = seconds % 60
+        return if (hours > 0) {
+            String.format("%02d:%02d:%02d", hours, minutes, remainder)
+        } else {
+            String.format("%02d:%02d", minutes, remainder)
+        }
     }
 
     private fun displayDate(date: String): String {

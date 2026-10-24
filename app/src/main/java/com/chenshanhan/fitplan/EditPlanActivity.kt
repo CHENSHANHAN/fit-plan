@@ -30,6 +30,7 @@ class EditPlanActivity : AppCompatActivity() {
     private lateinit var exerciseContainer: LinearLayout
     private lateinit var cardioTypeGroup: MaterialButtonToggleGroup
     private lateinit var cardioConfigTitle: TextView
+    private lateinit var cardioFieldsContainer: LinearLayout
     private lateinit var editCardioMinutes: EditText
     private lateinit var inclineFieldContainer: LinearLayout
     private lateinit var speedFieldContainer: LinearLayout
@@ -40,7 +41,7 @@ class EditPlanActivity : AppCompatActivity() {
     private var originalDayOfWeek: Int? = null
     private var reminderHour = 18
     private var reminderMinute = 30
-    private var cardioType = CardioType.INCLINE
+    private var cardioType: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,6 +54,7 @@ class EditPlanActivity : AppCompatActivity() {
         exerciseContainer = findViewById(R.id.exerciseEditorContainer)
         cardioTypeGroup = findViewById(R.id.cardioTypeGroup)
         cardioConfigTitle = findViewById(R.id.cardioConfigTitle)
+        cardioFieldsContainer = findViewById(R.id.cardioFieldsContainer)
         editCardioMinutes = findViewById(R.id.editCardioMinutes)
         inclineFieldContainer = findViewById(R.id.inclineFieldContainer)
         speedFieldContainer = findViewById(R.id.speedFieldContainer)
@@ -85,8 +87,14 @@ class EditPlanActivity : AppCompatActivity() {
             editFocus.setText(existing.focus)
             reminderHour = existing.reminderHour
             reminderMinute = existing.reminderMinute
-            cardioType = CardioType.normalize(existing.cardio.type)
-            editCardioMinutes.setText(existing.cardio.minutes.toString())
+            cardioType = if (existing.cardio.minutes > 0) {
+                CardioType.normalize(existing.cardio.type)
+            } else {
+                null
+            }
+            editCardioMinutes.setText(
+                if (existing.cardio.minutes > 0) existing.cardio.minutes.toString() else ""
+            )
             editCardioIncline.setText(existing.cardio.incline)
             editCardioSpeed.setText(existing.cardio.speed)
             existing.exercises.forEach { addExerciseRow(it) }
@@ -96,19 +104,18 @@ class EditPlanActivity : AppCompatActivity() {
                 currentPlans.none { it.dayOfWeek == dow }
             } ?: PlanData.weekOrder.first()
             spinnerDay.setSelection(PlanData.weekOrder.indexOf(firstAvailable))
-            editCardioMinutes.setText("20")
+            editCardioMinutes.setText("")
             editCardioIncline.setText("10")
             editCardioSpeed.setText("5")
             addExerciseRow(null)
         }
 
-        cardioTypeGroup.check(cardioButtonId(cardioType))
+        cardioType?.let { cardioTypeGroup.check(cardioButtonId(it)) }
         updateCardioTypeUi()
-        cardioTypeGroup.addOnButtonCheckedListener { _, checkedId, isChecked ->
-            if (isChecked) {
-                cardioType = cardioTypeForButton(checkedId)
-                updateCardioTypeUi()
-            }
+        cardioTypeGroup.addOnButtonCheckedListener { _, _, _ ->
+            val checkedId = cardioTypeGroup.checkedButtonId
+            cardioType = if (checkedId == View.NO_ID) null else cardioTypeForButton(checkedId)
+            updateCardioTypeUi()
         }
         updateTimeText()
 
@@ -148,13 +155,20 @@ class EditPlanActivity : AppCompatActivity() {
     }
 
     private fun updateCardioTypeUi() {
-        val isIncline = cardioType == CardioType.INCLINE
-        cardioConfigTitle.text = "有氧 · ${CardioType.label(cardioType)}"
+        val type = cardioType
+        cardioFieldsContainer.visibility = if (type == null) View.GONE else View.VISIBLE
+        if (type == null) {
+            cardioConfigTitle.text = "有氧训练（可选）"
+            return
+        }
+
+        val isIncline = type == CardioType.INCLINE
+        cardioConfigTitle.text = "有氧 · ${CardioType.label(type)}"
         inclineFieldContainer.visibility = if (isIncline) View.VISIBLE else View.GONE
         val speedParams = speedFieldContainer.layoutParams as LinearLayout.LayoutParams
         speedParams.marginStart = if (isIncline) dp(12) else 0
         speedFieldContainer.layoutParams = speedParams
-        editCardioSpeed.hint = when (cardioType) {
+        editCardioSpeed.hint = when (type) {
             CardioType.RUNNING -> "请输入跑步速度"
             CardioType.CYCLING -> "请输入骑车速度"
             else -> "例如：4.5-5"
@@ -184,12 +198,6 @@ class EditPlanActivity : AppCompatActivity() {
 
     private fun savePlan() {
         val focus = editFocus.text.toString().trim()
-        if (focus.isEmpty()) {
-            editFocus.error = "请输入训练部位或计划名称"
-            editFocus.requestFocus()
-            return
-        }
-
         val exercises = mutableListOf<Exercise>()
         for (row in exerciseRows) {
             val name = row.name.text.toString().trim()
@@ -215,20 +223,25 @@ class EditPlanActivity : AppCompatActivity() {
             exercises.add(Exercise(name, sets, reps))
         }
 
+        val selectedCardioType = cardioType
         val minutesText = editCardioMinutes.text.toString().trim()
-        val minutes = if (minutesText.isEmpty()) 0 else minutesText.toIntOrNull()
+        val minutes = if (selectedCardioType == null || minutesText.isEmpty()) {
+            0
+        } else {
+            minutesText.toIntOrNull()
+        }
         if (minutes == null || minutes < 0) {
             editCardioMinutes.error = "请输入分钟数，无有氧可填 0 或留空"
             editCardioMinutes.requestFocus()
             return
         }
-        val incline = if (cardioType == CardioType.INCLINE) {
+        val incline = if (selectedCardioType == CardioType.INCLINE) {
             editCardioIncline.text.toString().trim()
         } else {
             ""
         }
         val speed = editCardioSpeed.text.toString().trim()
-        if (minutes > 0 && cardioType == CardioType.INCLINE && incline.isEmpty()) {
+        if (minutes > 0 && selectedCardioType == CardioType.INCLINE && incline.isEmpty()) {
             editCardioIncline.error = "请输入坡度"
             editCardioIncline.requestFocus()
             return
@@ -236,12 +249,6 @@ class EditPlanActivity : AppCompatActivity() {
         if (minutes > 0 && speed.isEmpty()) {
             editCardioSpeed.error = "请输入速度"
             editCardioSpeed.requestFocus()
-            return
-        }
-        if (exercises.isEmpty() && minutes == 0) {
-            Toast.makeText(
-                this, "请至少添加一个力量动作，或填写有氧时长", Toast.LENGTH_LONG
-            ).show()
             return
         }
 
@@ -253,11 +260,31 @@ class EditPlanActivity : AppCompatActivity() {
             return
         }
 
+        if (exercises.isEmpty() && minutes == 0) {
+            repository.delete(dayOfWeek)
+            originalDayOfWeek?.takeIf { it != dayOfWeek }?.let { repository.delete(it) }
+            rescheduleReminders()
+            Toast.makeText(this, "已保存，当日无训练计划", Toast.LENGTH_SHORT).show()
+            finish()
+            return
+        }
+
+        if (focus.isEmpty()) {
+            editFocus.error = "请输入训练部位或计划名称"
+            editFocus.requestFocus()
+            return
+        }
+
+        val cardio = if (selectedCardioType == null) {
+            Cardio(0, "", "")
+        } else {
+            Cardio(minutes, incline, speed, selectedCardioType)
+        }
         val plan = PlanDay(
             dayOfWeek = dayOfWeek,
             focus = focus,
             exercises = exercises,
-            cardio = Cardio(minutes, incline, speed, cardioType),
+            cardio = cardio,
             reminderHour = reminderHour,
             reminderMinute = reminderMinute
         )

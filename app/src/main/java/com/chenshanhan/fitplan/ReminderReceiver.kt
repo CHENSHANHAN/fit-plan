@@ -22,7 +22,7 @@ class ReminderReceiver : BroadcastReceiver() {
         val contentParts = mutableListOf<String>()
         if (day.exercises.isNotEmpty()) {
             contentParts.add(
-                day.exercises.joinToString(" / ") { "${it.name} ${it.sets}×${it.reps}" }
+                day.exercises.joinToString(" / ") { "${it.name} ${it.sets} 组 × ${it.reps} 次" }
             )
         }
         if (day.cardio.minutes > 0) {

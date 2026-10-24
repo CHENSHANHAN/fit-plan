@@ -74,7 +74,7 @@ class PlansFragment : Fragment() {
                 exerciseText.setTextColor(root.context.getColor(R.color.text_secondary))
             } else {
                 exerciseText.text = plan.exercises.joinToString("\n") {
-                    "${it.name}  ${it.sets}×${it.reps}"
+                    "${it.name}  ${it.sets} 组 × ${it.reps} 次"
                 }
                 exerciseText.setTextColor(root.context.getColor(R.color.text_primary))
             }
@@ -132,7 +132,7 @@ class PlansFragment : Fragment() {
                 "提醒 ${template.reminderTimeText}"
             root.findViewById<TextView>(R.id.templateExercises).text =
                 template.exercises.joinToString("\n") {
-                    "${it.name}  ${it.sets}×${it.reps}"
+                    "${it.name}  ${it.sets} 组 × ${it.reps} 次"
                 }
             root.findViewById<TextView>(R.id.templateCardio).text =
                 "爬坡 ${template.cardio.minutes} 分钟（坡度 ${template.cardio.incline}，速度 ${template.cardio.speed}）"

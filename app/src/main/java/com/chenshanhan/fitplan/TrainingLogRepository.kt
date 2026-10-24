@@ -6,7 +6,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
-/** 训练历史与实际重量的本地存储。 */
+/** 训练历史、实际重量、组数进度与有氧计时的本地存储。 */
 class TrainingLogRepository(context: Context) {
 
     private val appContext = context.applicationContext
@@ -40,6 +40,65 @@ class TrainingLogRepository(context: Context) {
             updatedAt = System.currentTimeMillis()
         )
         saveOrDelete(updated)
+    }
+
+    /** 记录一组；达到计划组数后，该动作自动标记为已完成。 */
+    fun recordSet(date: String, plan: PlanDay, exerciseName: String): TrainingLog {
+        val base = editableLog(date, plan)
+        val updated = base.copy(
+            exercises = base.exercises.map {
+                if (it.name == exerciseName) {
+                    val nextSets = (it.completedSets + 1).coerceAtMost(it.sets)
+                    it.copy(
+                        completedSets = nextSets,
+                        completed = nextSets >= it.sets
+                    )
+                } else {
+                    it
+                }
+            },
+            updatedAt = System.currentTimeMillis()
+        )
+        saveOrDelete(updated)
+        return updated
+    }
+
+    /** 防止训练中漏记组数，可一次性将整个动作标记为完成。 */
+    fun completeExercise(date: String, plan: PlanDay, exerciseName: String): TrainingLog {
+        val base = editableLog(date, plan)
+        val updated = base.copy(
+            exercises = base.exercises.map {
+                if (it.name == exerciseName) {
+                    it.copy(completedSets = it.sets, completed = true)
+                } else {
+                    it
+                }
+            },
+            updatedAt = System.currentTimeMillis()
+        )
+        saveOrDelete(updated)
+        return updated
+    }
+
+    /** 保存有氧实际秒数、完成状态和计时起点；旧历史不受新字段影响。 */
+    fun updateCardioSession(
+        date: String,
+        plan: PlanDay,
+        elapsedSeconds: Long,
+        completed: Boolean,
+        timerStartedAt: Long,
+        timerRunning: Boolean
+    ): TrainingLog {
+        val base = editableLog(date, plan)
+        val updated = base.copy(
+            cardioElapsedSeconds = elapsedSeconds.coerceAtLeast(0L),
+            cardioCompleted = completed,
+            cardioTimerStartedAt = timerStartedAt,
+            cardioTimerRunning = timerRunning,
+            updatedAt = System.currentTimeMillis()
+        )
+        saveOrDelete(updated)
+        return updated
     }
 
     fun setCompleted(date: String, plan: PlanDay, completed: Boolean) {
@@ -100,11 +159,21 @@ class TrainingLogRepository(context: Context) {
             completed = existing.completed,
             updatedAt = existing.updatedAt,
             exercises = base.exercises.map { current ->
+                val old = existing.exercises.firstOrNull { it.name == current.name }
+                val oldCompletedSets = old?.let {
+                    if (it.completed) it.sets else it.completedSets
+                } ?: 0
+                val completedSets = oldCompletedSets.coerceIn(0, current.sets)
                 current.copy(
-                    weight = existing.exercises.firstOrNull { it.name == current.name }
-                        ?.weight.orEmpty()
+                    weight = old?.weight.orEmpty(),
+                    completedSets = completedSets,
+                    completed = current.sets > 0 && completedSets >= current.sets
                 )
-            }
+            },
+            cardioElapsedSeconds = existing.cardioElapsedSeconds,
+            cardioCompleted = existing.cardioCompleted,
+            cardioTimerStartedAt = existing.cardioTimerStartedAt,
+            cardioTimerRunning = existing.cardioTimerRunning
         )
     }
 
@@ -122,7 +191,12 @@ class TrainingLogRepository(context: Context) {
 
     private fun saveOrDelete(log: TrainingLog) {
         val key = logKey(log.date, log.dayOfWeek)
-        if (!log.completed && log.exercises.all { it.weight.isBlank() }) {
+        val hasExerciseData = log.exercises.any {
+            it.weight.isNotBlank() || it.completedSets > 0 || it.completed
+        }
+        val hasCardioData = log.cardioElapsedSeconds > 0 || log.cardioCompleted ||
+            log.cardioTimerRunning || log.cardioTimerStartedAt > 0
+        if (!log.completed && !hasExerciseData && !hasCardioData) {
             prefs.edit().remove(key).apply()
             return
         }
@@ -134,6 +208,8 @@ class TrainingLogRepository(context: Context) {
                     .put("sets", exercise.sets)
                     .put("reps", exercise.reps)
                     .put("weight", exercise.weight)
+                    .put("completedSets", exercise.completedSets)
+                    .put("completed", exercise.completed)
             )
         }
         val obj = JSONObject()
@@ -150,6 +226,10 @@ class TrainingLogRepository(context: Context) {
             )
             .put("completed", log.completed)
             .put("updatedAt", log.updatedAt)
+            .put("cardioElapsedSeconds", log.cardioElapsedSeconds)
+            .put("cardioCompleted", log.cardioCompleted)
+            .put("cardioTimerStartedAt", log.cardioTimerStartedAt)
+            .put("cardioTimerRunning", log.cardioTimerRunning)
         prefs.edit().putString(key, obj.toString()).apply()
     }
 
@@ -158,12 +238,17 @@ class TrainingLogRepository(context: Context) {
         val exerciseArray = obj.optJSONArray("exercises") ?: org.json.JSONArray()
         for (i in 0 until exerciseArray.length()) {
             val item = exerciseArray.getJSONObject(i)
+            val sets = item.optInt("sets", 0)
+            val completedSets = item.optInt("completedSets", 0).coerceIn(0, sets)
             exercises.add(
                 ExerciseLog(
                     name = item.optString("name", ""),
-                    sets = item.optInt("sets", 0),
+                    sets = sets,
                     reps = item.optString("reps", ""),
-                    weight = item.optString("weight", "")
+                    weight = item.optString("weight", ""),
+                    completedSets = completedSets,
+                    completed = item.optBoolean("completed", false) ||
+                        (sets > 0 && completedSets >= sets)
                 )
             )
         }
@@ -180,7 +265,11 @@ class TrainingLogRepository(context: Context) {
                 CardioType.normalize(cardio.optString("type", CardioType.INCLINE))
             ),
             completed = obj.optBoolean("completed", false),
-            updatedAt = obj.optLong("updatedAt", 0L)
+            updatedAt = obj.optLong("updatedAt", 0L),
+            cardioElapsedSeconds = obj.optLong("cardioElapsedSeconds", 0L),
+            cardioCompleted = obj.optBoolean("cardioCompleted", false),
+            cardioTimerStartedAt = obj.optLong("cardioTimerStartedAt", 0L),
+            cardioTimerRunning = obj.optBoolean("cardioTimerRunning", false)
         )
     }
 

@@ -1,6 +1,7 @@
 package com.chenshanhan.fitplan
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -63,7 +64,16 @@ class TodayFragment : Fragment() {
         emptyToday = view.findViewById(R.id.emptyToday)
         recycler = view.findViewById(R.id.todayRecycler)
 
-        adapter = DayAdapter(days = emptyList(), onChanged = {})
+        adapter = DayAdapter(
+            days = emptyList(),
+            onChanged = {},
+            onOpen = { plan ->
+                startActivity(
+                    Intent(requireContext(), WorkoutActivity::class.java)
+                        .putExtra(WorkoutActivity.EXTRA_DAY_OF_WEEK, plan.dayOfWeek)
+                )
+            }
+        )
         recycler.layoutManager = LinearLayoutManager(requireContext())
         recycler.adapter = adapter
 

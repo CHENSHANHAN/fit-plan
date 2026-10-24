@@ -86,37 +86,24 @@
                 android:layout_width="match_parent"
                 android:layout_height="52dp"
                 android:backgroundTint="@color/surface"
+                android:gravity="start|center_vertical"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
                 android:text="提醒时间  18:30"
-                android:textColor="@color/accent"
-                android:textSize="16sp"
-                android:textStyle="bold"
+                android:textColor="@color/text_primary"
+                android:textSize="14sp"
                 app:cornerRadius="12dp"
                 app:strokeColor="@color/divider"
                 app:strokeWidth="1dp" />
 
-            <LinearLayout
+            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="20dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="力量训练（可选）"
-                    android:textColor="@color/text_primary"
-                    android:textSize="17sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="可仅安排有氧"
-                    android:textColor="@color/accent"
-                    android:textSize="12sp" />
-            </LinearLayout>
+                android:text="力量训练（可选）"
+                android:textColor="@color/text_primary"
+                android:textSize="17sp"
+                android:textStyle="bold" />
 
             <LinearLayout
                 android:id="@+id/exerciseEditorContainer"
@@ -137,37 +124,22 @@
                 app:strokeColor="@color/divider"
                 app:strokeWidth="1dp" />
 
-            <LinearLayout
+            <TextView
+                android:id="@+id/cardioConfigTitle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="22dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-
-                <TextView
-                    android:id="@+id/cardioConfigTitle"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="有氧 · 爬坡"
-                    android:textColor="@color/text_primary"
-                    android:textSize="17sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="可单独安排"
-                    android:textColor="@color/accent"
-                    android:textSize="12sp" />
-            </LinearLayout>
+                android:text="有氧训练（可选）"
+                android:textColor="@color/text_primary"
+                android:textSize="17sp"
+                android:textStyle="bold" />
 
             <com.google.android.material.button.MaterialButtonToggleGroup
                 android:id="@+id/cardioTypeGroup"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                app:selectionRequired="true"
+                app:selectionRequired="false"
                 app:singleSelection="true">
 
                 <com.google.android.material.button.MaterialButton
@@ -228,61 +200,69 @@
                     app:strokeWidth="1dp" />
             </com.google.android.material.button.MaterialButtonToggleGroup>
 
-            <TextView
-                style="@style/FormLabel"
-                android:layout_marginTop="14dp"
-                android:text="时长（分钟，0 或留空表示不安排）" />
-
-            <EditText
-                android:id="@+id/editCardioMinutes"
-                style="@style/FormInput"
-                android:hint="例如：20"
-                android:imeOptions="actionNext"
-                android:inputType="number" />
-
             <LinearLayout
+                android:id="@+id/cardioFieldsContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:orientation="horizontal">
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    style="@style/FormLabel"
+                    android:layout_marginTop="14dp"
+                    android:text="时长（分钟，0 或留空表示不安排）" />
+
+                <EditText
+                    android:id="@+id/editCardioMinutes"
+                    style="@style/FormInput"
+                    android:hint="例如：20"
+                    android:imeOptions="actionNext"
+                    android:inputType="number" />
 
                 <LinearLayout
-                    android:id="@+id/inclineFieldContainer"
-                    android:layout_width="0dp"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
+                    android:layout_marginTop="12dp"
+                    android:orientation="horizontal">
 
-                    <TextView
-                        style="@style/FormLabel"
-                        android:text="坡度" />
+                    <LinearLayout
+                        android:id="@+id/inclineFieldContainer"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
 
-                    <EditText
-                        android:id="@+id/editCardioIncline"
-                        style="@style/FormInput"
-                        android:hint="例如：10"
-                        android:imeOptions="actionNext"
-                        android:inputType="text" />
-                </LinearLayout>
+                        <TextView
+                            style="@style/FormLabel"
+                            android:text="坡度" />
 
-                <LinearLayout
-                    android:id="@+id/speedFieldContainer"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="12dp"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
+                        <EditText
+                            android:id="@+id/editCardioIncline"
+                            style="@style/FormInput"
+                            android:hint="例如：10"
+                            android:imeOptions="actionNext"
+                            android:inputType="text" />
+                    </LinearLayout>
 
-                    <TextView
-                        style="@style/FormLabel"
-                        android:text="速度" />
+                    <LinearLayout
+                        android:id="@+id/speedFieldContainer"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
 
-                    <EditText
-                        android:id="@+id/editCardioSpeed"
-                        style="@style/FormInput"
-                        android:hint="例如：4.5-5"
-                        android:imeOptions="actionDone"
-                        android:inputType="text" />
+                        <TextView
+                            style="@style/FormLabel"
+                            android:text="速度" />
+
+                        <EditText
+                            android:id="@+id/editCardioSpeed"
+                            style="@style/FormInput"
+                            android:hint="例如：4.5-5"
+                            android:imeOptions="actionDone"
+                            android:inputType="text" />
+                    </LinearLayout>
                 </LinearLayout>
             </LinearLayout>
 
@@ -291,7 +271,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
                 android:gravity="center"
-                android:text="力量与有氧至少填写一项，也可以组合安排"
+                android:text="不安排力量或有氧时，保存后当日显示无训练计划"
                 android:textColor="@color/text_secondary"
                 android:textSize="12sp" />
         </LinearLayout>

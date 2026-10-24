@@ -1,9 +1,12 @@
 package com.chenshanhan.fitplan
 
 import android.content.res.ColorStateList
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
@@ -54,6 +57,9 @@ class DayAdapter(
         val day = days[position]
         val ctx = holder.itemView.context
         val isToday = day.dayOfWeek == todayDow
+        val logRepository = TrainingLogRepository(ctx)
+        val today = logRepository.today()
+        val todayLog = if (isToday) logRepository.getLog(today, day.dayOfWeek) else null
 
         holder.dayBadge.text = day.dayName
         holder.focusName.text = day.focus
@@ -72,6 +78,25 @@ class DayAdapter(
             )
             row.findViewById<TextView>(R.id.exerciseName).text = ex.name
             row.findViewById<TextView>(R.id.exerciseSets).text = "${ex.sets}×${ex.reps}"
+            val weightInput = row.findViewById<EditText>(R.id.editActualWeight)
+            val savedWeight = todayLog?.exercises
+                ?.firstOrNull { it.name == ex.name }?.weight.orEmpty()
+            weightInput.setText(savedWeight)
+            weightInput.setSelection(weightInput.text.length)
+            weightInput.isEnabled = isToday
+            weightInput.alpha = if (isToday) 1f else 0.45f
+            weightInput.hint = if (isToday) "重量kg" else "当天录入"
+            // 每次绑定都使用新行和新监听器，setText 后再注册，避免覆盖已有记录。
+            weightInput.addTextChangedListener(object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
+                override fun afterTextChanged(s: Editable?) {
+                    if (!isToday) return
+                    logRepository.updateWeight(
+                        today, day, ex.name, s?.toString().orEmpty()
+                    )
+                }
+            })
             holder.exerciseContainer.addView(row)
         }
 
@@ -90,9 +115,11 @@ class DayAdapter(
             val pos = holder.bindingAdapterPosition
             if (pos == RecyclerView.NO_POSITION) return@setOnClickListener
             val item = days[pos]
+            if (item.dayOfWeek != todayDow) return@setOnClickListener
             val newState = !Prefs.isDone(ctx, item.dayOfWeek)
             Prefs.setDone(ctx, item.dayOfWeek, newState)
-            bindDone(holder, newState, item.dayOfWeek == todayDow)
+            logRepository.setCompleted(today, item, newState)
+            bindDone(holder, newState, true)
             onChanged()
         }
     }
@@ -107,9 +134,10 @@ class DayAdapter(
         holder.doneLabel.text = when {
             done -> "今日已完成 · 继续加油"
             isToday -> "今天还没打卡"
-            else -> "未打卡"
+            else -> "训练日当天可打卡"
         }
         holder.doneLabel.setTextColor(if (done) accent else gray)
+        holder.btnCheck.visibility = if (isToday) View.VISIBLE else View.GONE
 
         holder.btnCheck.text = if (done) "已打卡 ✓" else "完成打卡"
         if (done) {

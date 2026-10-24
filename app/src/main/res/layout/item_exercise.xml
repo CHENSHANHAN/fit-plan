@@ -12,6 +12,8 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
+        android:ellipsize="end"
+        android:maxLines="1"
         android:text="坐姿推胸"
         android:textColor="@color/text_primary"
         android:textSize="14sp" />
@@ -20,8 +22,27 @@
         android:id="@+id/exerciseSets"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginStart="6dp"
         android:text="4×8-12"
         android:textColor="@color/accent"
-        android:textSize="14sp"
+        android:textSize="13sp"
         android:textStyle="bold" />
+
+    <EditText
+        android:id="@+id/editActualWeight"
+        android:layout_width="76dp"
+        android:layout_height="40dp"
+        android:layout_marginStart="8dp"
+        android:background="@drawable/bg_input"
+        android:gravity="center"
+        android:hint="重量kg"
+        android:imeOptions="actionNext"
+        android:importantForAutofill="no"
+        android:inputType="numberDecimal"
+        android:maxLines="1"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp"
+        android:textColor="@color/text_primary"
+        android:textColorHint="@color/text_secondary"
+        android:textSize="12sp" />
 </LinearLayout>

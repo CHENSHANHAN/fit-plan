@@ -5,6 +5,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.widget.TextView
 import android.widget.Toast
@@ -13,6 +15,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.switchmaterial.SwitchMaterial
+import java.util.Calendar
 
 class MainActivity : AppCompatActivity() {
 
@@ -20,9 +23,18 @@ class MainActivity : AppCompatActivity() {
     private lateinit var switchNotif: SwitchMaterial
     private lateinit var weekProgress: TextView
     private lateinit var reminderSummary: TextView
+    private lateinit var currentDateTime: TextView
     private lateinit var emptyText: TextView
     private lateinit var recycler: RecyclerView
     private var plans: List<PlanDay> = emptyList()
+
+    private val timeHandler = Handler(Looper.getMainLooper())
+    private val timeTicker = object : Runnable {
+        override fun run() {
+            updateCurrentTime()
+            timeHandler.postDelayed(this, 30_000L)
+        }
+    }
 
     private val notifPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -41,10 +53,12 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         ReminderScheduler.ensureChannel(this)
+        TrainingLogRepository(this).migrateLegacyDone(PlanRepository(this).getPlans())
 
         switchNotif = findViewById(R.id.switchNotif)
         weekProgress = findViewById(R.id.weekProgress)
         reminderSummary = findViewById(R.id.reminderSummary)
+        currentDateTime = findViewById(R.id.currentDateTime)
         emptyText = findViewById(R.id.emptyText)
         recycler = findViewById(R.id.recycler)
 
@@ -61,6 +75,9 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<View>(R.id.btnTemplates).setOnClickListener {
             startActivity(Intent(this, TemplateActivity::class.java))
+        }
+        findViewById<View>(R.id.btnHistory).setOnClickListener {
+            startActivity(Intent(this, HistoryActivity::class.java))
         }
 
         switchNotif.isChecked = Prefs.isNotificationEnabled(this)
@@ -85,7 +102,27 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        timeHandler.removeCallbacks(timeTicker)
+        timeHandler.post(timeTicker)
         reloadPlans()
+    }
+
+    override fun onPause() {
+        timeHandler.removeCallbacks(timeTicker)
+        super.onPause()
+    }
+
+    private fun updateCurrentTime() {
+        val now = Calendar.getInstance()
+        currentDateTime.text = String.format(
+            "%d年%d月%d日 %s · %02d:%02d",
+            now.get(Calendar.YEAR),
+            now.get(Calendar.MONTH) + 1,
+            now.get(Calendar.DAY_OF_MONTH),
+            weekdayName(now.get(Calendar.DAY_OF_WEEK)),
+            now.get(Calendar.HOUR_OF_DAY),
+            now.get(Calendar.MINUTE)
+        )
     }
 
     private fun openEditor(dayOfWeek: Int) {

@@ -33,7 +33,7 @@ fun weekdayName(dayOfWeek: Int): String = when (dayOfWeek) {
 }
 
 object PlanData {
-    /** 周一至周日，首页也按此顺序展示。 */
+    /** 周一至周日，计划编辑页按此顺序展示。 */
     val weekOrder: List<Int> = listOf(
         Calendar.MONDAY,
         Calendar.TUESDAY,

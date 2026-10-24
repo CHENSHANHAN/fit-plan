@@ -27,14 +27,6 @@
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
 
-        <activity
-            android:name=".TemplateActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".HistoryActivity"
-            android:exported="false" />
-
         <receiver
             android:name=".ReminderReceiver"
             android:exported="false" />

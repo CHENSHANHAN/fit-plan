@@ -1,52 +1,12 @@
 package com.chenshanhan.fitplan
 
-import android.Manifest
-import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
-import android.view.View
-import android.widget.TextView
-import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.switchmaterial.SwitchMaterial
-import java.util.Calendar
+import com.google.android.material.bottomnavigation.BottomNavigationView
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var adapter: DayAdapter
-    private lateinit var switchNotif: SwitchMaterial
-    private lateinit var weekProgress: TextView
-    private lateinit var reminderSummary: TextView
-    private lateinit var currentDateTime: TextView
-    private lateinit var emptyText: TextView
-    private lateinit var recycler: RecyclerView
-    private var plans: List<PlanDay> = emptyList()
-
-    private val timeHandler = Handler(Looper.getMainLooper())
-    private val timeTicker = object : Runnable {
-        override fun run() {
-            updateCurrentTime()
-            timeHandler.postDelayed(this, 30_000L)
-        }
-    }
-
-    private val notifPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (granted && Prefs.isNotificationEnabled(this)) {
-                ReminderScheduler.scheduleAll(this)
-                Toast.makeText(this, "提醒已开启", Toast.LENGTH_SHORT).show()
-            } else if (!granted) {
-                Toast.makeText(
-                    this, "未授予通知权限，提醒无法正常显示", Toast.LENGTH_LONG
-                ).show()
-            }
-        }
+    private lateinit var bottomNavigation: BottomNavigationView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,101 +15,41 @@ class MainActivity : AppCompatActivity() {
         ReminderScheduler.ensureChannel(this)
         TrainingLogRepository(this).migrateLegacyDone(PlanRepository(this).getPlans())
 
-        switchNotif = findViewById(R.id.switchNotif)
-        weekProgress = findViewById(R.id.weekProgress)
-        reminderSummary = findViewById(R.id.reminderSummary)
-        currentDateTime = findViewById(R.id.currentDateTime)
-        emptyText = findViewById(R.id.emptyText)
-        recycler = findViewById(R.id.recycler)
-
-        adapter = DayAdapter(
-            days = emptyList(),
-            onChanged = { refreshHeader() },
-            onEdit = { openEditor(it.dayOfWeek) }
-        )
-        recycler.layoutManager = LinearLayoutManager(this)
-        recycler.adapter = adapter
-
-        findViewById<View>(R.id.btnAddPlan).setOnClickListener {
-            startActivity(Intent(this, EditPlanActivity::class.java))
-        }
-        findViewById<View>(R.id.btnTemplates).setOnClickListener {
-            startActivity(Intent(this, TemplateActivity::class.java))
-        }
-        findViewById<View>(R.id.btnHistory).setOnClickListener {
-            startActivity(Intent(this, HistoryActivity::class.java))
-        }
-
-        switchNotif.isChecked = Prefs.isNotificationEnabled(this)
-        switchNotif.setOnCheckedChangeListener { _, checked ->
-            Prefs.setNotificationEnabled(this, checked)
-            if (checked) {
-                if (Build.VERSION.SDK_INT >= 33 &&
-                    checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
-                    PackageManager.PERMISSION_GRANTED
-                ) {
-                    notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                } else {
-                    ReminderScheduler.scheduleAll(this)
-                    Toast.makeText(this, "提醒已开启", Toast.LENGTH_SHORT).show()
-                }
-            } else {
-                ReminderScheduler.cancelAll(this)
-                Toast.makeText(this, "提醒已关闭", Toast.LENGTH_SHORT).show()
-            }
+        bottomNavigation = findViewById(R.id.bottomNavigation)
+        val initialTab = savedInstanceState?.getInt(KEY_SELECTED_TAB, R.id.nav_today)
+            ?: R.id.nav_today
+        bottomNavigation.selectedItemId = initialTab
+        showTab(initialTab)
+        bottomNavigation.setOnItemSelectedListener { item ->
+            showTab(item.itemId)
+            true
         }
     }
 
-    override fun onResume() {
-        super.onResume()
-        timeHandler.removeCallbacks(timeTicker)
-        timeHandler.post(timeTicker)
-        reloadPlans()
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putInt(KEY_SELECTED_TAB, bottomNavigation.selectedItemId)
+        super.onSaveInstanceState(outState)
     }
 
-    override fun onPause() {
-        timeHandler.removeCallbacks(timeTicker)
-        super.onPause()
+    fun showPlans() {
+        bottomNavigation.selectedItemId = R.id.nav_plans
     }
 
-    private fun updateCurrentTime() {
-        val now = Calendar.getInstance()
-        currentDateTime.text = String.format(
-            "%d年%d月%d日 %s · %02d:%02d",
-            now.get(Calendar.YEAR),
-            now.get(Calendar.MONTH) + 1,
-            now.get(Calendar.DAY_OF_MONTH),
-            weekdayName(now.get(Calendar.DAY_OF_WEEK)),
-            now.get(Calendar.HOUR_OF_DAY),
-            now.get(Calendar.MINUTE)
-        )
-    }
-
-    private fun openEditor(dayOfWeek: Int) {
-        startActivity(
-            Intent(this, EditPlanActivity::class.java)
-                .putExtra(EditPlanActivity.EXTRA_DAY_OF_WEEK, dayOfWeek)
-        )
-    }
-
-    private fun reloadPlans() {
-        plans = PlanRepository(this).getPlans()
-        adapter.updatePlans(plans)
-        emptyText.visibility = if (plans.isEmpty()) View.VISIBLE else View.GONE
-        recycler.visibility = if (plans.isEmpty()) View.GONE else View.VISIBLE
-        reminderSummary.text = if (plans.isEmpty()) {
-            "添加计划后可开启定时提醒"
-        } else {
-            plans.joinToString(" · ") { "${it.dayName} ${it.reminderTimeText}" }
+    private fun showTab(itemId: Int) {
+        val (fragment, tag) = when (itemId) {
+            R.id.nav_plans -> PlansFragment() to TAG_PLANS
+            R.id.nav_history -> HistoryFragment() to TAG_HISTORY
+            else -> TodayFragment() to TAG_TODAY
         }
-        refreshHeader()
+        supportFragmentManager.beginTransaction()
+            .replace(R.id.fragmentContainer, fragment, tag)
+            .commit()
     }
 
-    private fun refreshHeader() {
-        weekProgress.text = if (plans.isEmpty()) {
-            "本周还没有训练计划"
-        } else {
-            "本周已完成 ${Prefs.weekDoneCount(this, plans)} / ${plans.size} 次打卡"
-        }
+    private companion object {
+        const val KEY_SELECTED_TAB = "selected_tab"
+        const val TAG_TODAY = "today"
+        const val TAG_PLANS = "plans"
+        const val TAG_HISTORY = "history"
     }
 }

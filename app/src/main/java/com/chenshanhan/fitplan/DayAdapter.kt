@@ -20,7 +20,7 @@ import java.util.Locale
 class DayAdapter(
     private var days: List<PlanDay>,
     private val onChanged: () -> Unit,
-    private val onEdit: (PlanDay) -> Unit
+    private val onEdit: ((PlanDay) -> Unit)? = null
 ) : RecyclerView.Adapter<DayAdapter.DayVH>() {
 
     private var todayDow: Int = Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
@@ -115,9 +115,10 @@ class DayAdapter(
             isFuture
         )
 
+        holder.btnEdit.visibility = if (onEdit == null) View.GONE else View.VISIBLE
         holder.btnEdit.setOnClickListener {
             val pos = holder.bindingAdapterPosition
-            if (pos != RecyclerView.NO_POSITION) onEdit(days[pos])
+            if (pos != RecyclerView.NO_POSITION) onEdit?.invoke(days[pos])
         }
         holder.btnCheck.setOnClickListener {
             val pos = holder.bindingAdapterPosition
